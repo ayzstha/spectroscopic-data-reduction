@@ -17,6 +17,7 @@ from astropy.visualization import make_lupton_rgb
 from astropy.modeling import models, fitting
 import sys
 import csv
+import pandas as pd
 
 # Question 1
 # (a) Create an array X of 100 values from 1 to 100
@@ -51,7 +52,7 @@ with open(filename, newline='') as csvfile:
 # (b) Print the (HD #, RA, DEC, Magn) values of the 17th-27th Be star entries
 print("HD #, RA, DEC, Magn")
 for star in be_stars[16:27]:  # Indexing starts from 0, so 17th entry is index 16
-    print(star["HD #"], star["RA"], star["DEC"], star["Magn"])
+    print(star["HD #"], star["RA"], star["DEC"], star["Magn."])
 
 # Question 3
 # (a) Read in the FITS file
@@ -75,22 +76,30 @@ plt.grid(color='white', ls='dotted')
 plt.show()
 
 # (d) Read the CSV file and calculate flux means
-csv_file = "stars.csv"  # Update with actual file path
+# Read CSV and extract 10th star (index 9)
+csv_file = "bruneau.csv"
 stars = pd.read_csv(csv_file)
-star_x, star_y = int(stars.iloc[9]['x']), int(stars.iloc[9]['y'])
+ra = stars.iloc[9]['_RAJ2000']
+dec = stars.iloc[9]['_DEJ2000']
 
-# Mean flux in +/- 4 pixels around star center
+# Convert RA/DEC to pixel coordinates
+sky_coord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+x, y = wcs.world_to_pixel(sky_coord)
+star_x, star_y = int(round(float(x))), int(round(float(y)))
+
+
+# Mean flux in ±4 pixels
 flux_4px = image_data[star_y-4:star_y+5, star_x-4:star_x+5]
 mean_flux_4px = np.mean(flux_4px)
 
-# Convert arcseconds to pixels using WCS
-arcsec_to_pixel = np.abs(wcs.wcs.cdelt[0]) * 3600
-radius_px = int(10 / arcsec_to_pixel)
+# Mean flux in ±10 arcseconds (converted to pixels)
+arcsec_per_pixel = np.abs(wcs.wcs.cdelt[0]) * 3600
+radius_px = int(round(10 / arcsec_per_pixel))
 flux_10arcsec = image_data[star_y-radius_px:star_y+radius_px+1, star_x-radius_px:star_x+radius_px+1]
 mean_flux_10arcsec = np.mean(flux_10arcsec)
 
-print(f"Mean flux in +/- 4 pixels: {mean_flux_4px}")
-print(f"Mean flux in +/- 10 arcsec: {mean_flux_10arcsec}")
+print(f"(d) Mean flux in ±4 pixels: {mean_flux_4px}")
+print(f"(d) Mean flux in ±10 arcsec: {mean_flux_10arcsec}")
 
 # (e) Create and write new FITS file with log10(flux)
 log_flux = np.log10(image_data, where=image_data > 0)  # Avoid log(0)
